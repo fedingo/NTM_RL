@@ -1,6 +1,4 @@
 
-from keras import backend as K
-
 import random
 import numpy as np
 from abstractAgent import *
@@ -9,15 +7,6 @@ import matplotlib as plt
 from NN_models.NTM_model import *
 # from NN_models.DNC_model import *
 from NN_models.LSTM_model import *
-
-def huber_loss(a, b):
-	error = a - b
-	quadratic_term = error*error / 2
-	linear_term = abs(error) - 1/2
-	use_linear_term = (abs(error) > 1.0)
-	use_linear_term = K.cast(use_linear_term, 'float32')
-
-	return use_linear_term * linear_term + (1-use_linear_term) * quadratic_term
 
 
 class DQNAgent_NTM(abstractAgent):
@@ -179,7 +168,7 @@ class DQNAgent_NTM(abstractAgent):
 			# axes = plt.gca()
 			# axes.set_ylim([-10, 10])
 			# plt.bar(range(4), q_values[0], align='center', alpha=0.5)
-			plt.matshow(self.current_memory[0], fignum=100, cmap=plt.cm.gray)
+			plt.matshow(self.current_memory[0], fignum=0, cmap=plt.cm.gray)
 
 		return action
 

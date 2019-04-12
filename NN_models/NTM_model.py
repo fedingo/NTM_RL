@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, '..')
 
-from ntm import NTMCell, NTMControllerState
+from NN_models.ntm import NTMCell, NTMControllerState
 from NN_models.abstractModel import abstractModel
 
 import time
@@ -25,7 +25,7 @@ class NTM_model(abstractModel):
 		self.tau = 0.5
 
 		self.constant_value = 1e-6
-		learning_rate = 2e-3
+		learning_rate = 3e-3
 
 		self.print_memory = False
 

@@ -23,6 +23,7 @@ def test_agent(tested_agent, env):
 	episode = 0
 	test_episodes = 5
 	state = env.reset()
+	env.render()
 	tested_agent.reset_mem()
 	if len(state.shape) > 1:
 		state = state.flatten()
@@ -41,12 +42,13 @@ def test_agent(tested_agent, env):
 		state = next_state
 		if len(state.shape) > 1:
 			state = state.flatten()
-
+		state = np.true_divide(state, input_scaling)
 		env.render()
 
 		if done:
 			episode += 1
 			state = env.reset()
+			env.render()
 			if len(state.shape) > 1:
 				state = state.flatten()
 			tested_agent.reset_mem()
@@ -70,6 +72,7 @@ agent_class = sys.argv[2]
 environment = sys.argv[3]
 target_score = 0
 target_episodes = 1000
+input_scaling = 4
 
 if len(sys.argv) == 5:
 	target_episodes = int(sys.argv[4])
@@ -97,6 +100,7 @@ env = gym.make(environment)
 state = env.reset()
 if len(state.shape) > 1:
 	state = state.flatten()
+state = np.true_divide(state, input_scaling)
 
 state_size = state.shape[0]
 action_reshape = False
@@ -129,6 +133,7 @@ if operation == "train":
 
 		if len(next_state.shape) > 1:
 			next_state = next_state.flatten()
+		next_state = np.true_divide(next_state, input_scaling)
 
 		obj = { \
 			"state"  : state,
