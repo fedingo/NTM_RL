@@ -34,12 +34,8 @@ def test_agent(tested_agent, env):
 
     while episode < test_episodes:
         action = tested_agent.act(state, testing=True)
-        if action_reshape:
-            action_ = np.unravel_index(action, original_action_size)
-            next_state, reward, done, info = env.step(action_)
-        else:
-            next_state, reward, done, info = env.step(action)
-        total_score += reward;
+        next_state, reward, done, info = env.step(action)
+        total_score += reward
         score += reward
 
         state = next_state
@@ -65,7 +61,7 @@ def test_agent(tested_agent, env):
 
 agent_class = NTMAgent
 environment = "UnblockMeCompactFixedMap-v0" # "UnblockMeListedFixedMap-v0" # "UnblockMeFixedMap-v0" #
-operation = "train"
+operation = "test"
 target_episodes = 500
 
 scale_input_constant = 1
@@ -105,11 +101,7 @@ if operation == "train":
     while True:
 
         action = agent.act(state)
-        if action_reshape:
-            action_ = np.unravel_index(action, original_action_size)
-            next_state, reward, done, info = env.step(action_)
-        else:
-            next_state, reward, done, info = env.step(action)
+        next_state, reward, done, info = env.step(action)
         score += reward
 
         if len(next_state.shape) > 1:

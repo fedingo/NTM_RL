@@ -1,6 +1,3 @@
-import sys
-sys.path.insert(0, '..')
-
 from NN_models.ntm import NTMCell, NTMControllerState
 from NN_models.abstractModel import abstractModel
 

@@ -1,9 +1,5 @@
-import sys
-
-sys.path.insert(0, '..')
-
-from ntm import NTMCell, NTMControllerState
-from abstractModel import abstractModel
+from NN_models.ntm import NTMCell, NTMControllerState
+from NN_models.abstractModel import abstractModel
 
 import time
 import tensorflow as tf
@@ -24,8 +20,6 @@ class NTM_model(abstractModel):
         self.num_write_heads = 1
         self.output_dim = 32
         self.num_actions = list(num_actions)
-        #self.num_actions_1 = np.asscalar(num_actions[0])
-        #self.num_actions_2 = np.asscalar(num_actions[1])
         self.input_size = input_size
 
         self.tau = 0.5
@@ -70,15 +64,6 @@ class NTM_model(abstractModel):
             trainable_variables = tf.trainable_variables()
             grads, _ = tf.clip_by_global_norm(tf.gradients(self.q_loss, trainable_variables), max_grad_norm)
             self.q_train_op = optimizer.apply_gradients(zip(grads, trainable_variables))
-
-        # with tf.variable_scope('predictor_training_operations'):
-        #     self.pred_loss = tf.reduce_sum(tf.squared_difference(self.predict_state, self.model['predictor']))
-        #     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-        #
-        #     max_grad_norm = 50
-        #     trainable_variables = tf.trainable_variables()
-        #     grads, _ = tf.clip_by_global_norm(tf.gradients(self.pred_loss, trainable_variables), max_grad_norm)
-        #     self.pred_train_op = optimizer.apply_gradients(zip(grads, trainable_variables))
 
         with tf.name_scope("update_target_network"):
             critic_params = [t for t in tf.trainable_variables() if t.name.startswith('q_network')]
@@ -130,13 +115,6 @@ class NTM_model(abstractModel):
         for i in range(self.num_read_heads):
             output_sequence_list.append(rnn_output_sequence[:, :, i*self.output_dim : (i+1)*self.output_dim])
 
-        #q_output_sequence = rnn_output_sequence[:, :, :self.output_dim]
-        #s_output_sequence = rnn_output_sequence[:, :, self.output_dim:]
-
-        # print(q_output_sequence.shape.as_list())
-        # print(s_output_sequence.shape.as_list())
-
-        # output_sequence = tf.concat([output_sequence,self.inputs], axis=-1)
         with tf.name_scope("after_ntm"):
 
             with tf.name_scope("state_value"):
@@ -209,10 +187,6 @@ class NTM_model(abstractModel):
                     output_sequence = tf.tile(output_sequence, multiples=tile_shape)
                     node_dict['action_' + str(i)] = output_sequence
                     node_dict['outputs'] = node_dict['outputs'] + output_sequence
-
-        # print(node_dict['action_1'].shape.as_list())
-        # print(node_dict['action_2'].shape.as_list())
-        # print(node_dict['outputs'].shape.as_list())
 
         node_dict['rnn_outputs'] = rnn_output_sequence
         node_dict['memory'] = memory_sequence
