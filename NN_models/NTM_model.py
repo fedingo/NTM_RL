@@ -11,8 +11,8 @@ class NTM_model(abstractModel):
 
 		self.num_layers = 2
 		self.num_units = 32
-		self.num_memory_locations = 32
-		self.memory_size = 32
+		self.num_memory_locations = 8
+		self.memory_size = 8
 		self.num_read_heads = 2
 		self.num_write_heads = 1
 		self.output_dim = 32
@@ -60,15 +60,6 @@ class NTM_model(abstractModel):
 			trainable_variables = tf.trainable_variables()
 			grads, _ = tf.clip_by_global_norm(tf.gradients(self.q_loss, trainable_variables), max_grad_norm)
 			self.q_train_op = optimizer.apply_gradients(zip(grads, trainable_variables))
-
-		with tf.variable_scope('predictor_training_operations'):
-			self.pred_loss = tf.reduce_sum(tf.squared_difference(self.predict_state, self.model['predictor']))
-			optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-
-			max_grad_norm = 50
-			trainable_variables = tf.trainable_variables()
-			grads, _ = tf.clip_by_global_norm(tf.gradients(self.pred_loss, trainable_variables), max_grad_norm)
-			self.pred_train_op = optimizer.apply_gradients(zip(grads, trainable_variables))
 
 
 		with tf.name_scope("update_target_network"):
@@ -119,10 +110,38 @@ class NTM_model(abstractModel):
 		q_output_sequence = rnn_output_sequence[:, :, :self.output_dim]
 		s_output_sequence = rnn_output_sequence[:, :, self.output_dim:]
 
+		#q_output_sequence = tf.concat([q_output_sequence,self.inputs], axis = -1)
+		#s_output_sequence = tf.concat([s_output_sequence,self.inputs], axis = -1)
+
 		# output_sequence = tf.concat([output_sequence,self.inputs], axis=-1)
 		with tf.name_scope("after_ntm"):
+			with tf.name_scope("state_value"):
+				arch = [256,32]
+				output_sequence = s_output_sequence
+
+				for l in arch:
+					output_sequence = tf.contrib.layers.fully_connected(
+						inputs=output_sequence,
+						num_outputs=l,
+						activation_fn=tf.nn.relu
+					)
+
+				node_dict['current_latent'] = output_sequence
+
+				output_sequence = tf.contrib.layers.fully_connected(
+					inputs=output_sequence,
+					num_outputs=1,
+					activation_fn=None
+				)
+
+				tile_shape = list(np.copy([self.num_actions]))
+				tile_shape = [1,1] + tile_shape
+				output_sequence = tf.tile(output_sequence, multiples=tile_shape)
+				node_dict['state_value'] = output_sequence
+				node_dict['outputs'] = output_sequence
+
 			with tf.name_scope("q_values"):
-				arch = [128]
+				arch = [512, 128]
 				output_sequence = q_output_sequence
 
 				for l in arch:
@@ -137,26 +156,12 @@ class NTM_model(abstractModel):
 					num_outputs=self.num_actions,
 					activation_fn=None
 				)
-				node_dict['outputs'] = output_sequence
 
-			with tf.name_scope("predictor"):
+				mean = tf.reduce_mean(output_sequence, axis=2, keepdims=True)
+				output_sequence = output_sequence - mean
 
-				arch = [48]
-				output_sequence = s_output_sequence
+				node_dict['outputs'] += output_sequence
 
-				for l in arch:
-					output_sequence = tf.contrib.layers.fully_connected(
-						inputs=output_sequence,
-						num_outputs=l,
-						activation_fn=tf.nn.relu
-					)
-
-				output_sequence = tf.contrib.layers.fully_connected(
-					inputs=output_sequence,
-					num_outputs=self.input_size,
-					activation_fn=tf.nn.sigmoid
-				)
-				node_dict['predictor'] = output_sequence
 
 		node_dict['rnn_outputs'] = rnn_output_sequence
 		node_dict['memory' ] = memory_sequence
@@ -189,7 +194,7 @@ class NTM_model(abstractModel):
 
 		return outputs[0]
 
-	def train_on_batch(self, data, target, data_next = None, mem = None):
+	def train_on_batch(self, data, target, mem = None):
 
 		if mem is None:
 			mem = np.ones([self.batch_size, self.memory_size, self.num_memory_locations]) * self.constant_value
@@ -202,14 +207,6 @@ class NTM_model(abstractModel):
 			})
 
 		p_loss = None
-
-		if data_next is not None:
-			p_loss, _ = self.tf_session.run([self.pred_loss, self.pred_train_op],
-											feed_dict={
-											  self.inputs: data,
-											  self.predict_state: data_next,
-											  self.memory_init: mem
-											})
 
 		return loss, p_loss
 

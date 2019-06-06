@@ -15,10 +15,10 @@ class DQNAgent_NTM(abstractAgent):
 		print("Creating a DQN Agent")
 
 		self.exploration_rate  = 1
-		self.exploration_decay = 0.99
+		self.exploration_decay = 0.992
 		self.exploration_min   = 0.02
 
-		self.train_rate = 32
+		self.train_rate = 16
 		self.update_frozen = 1000
 		self.batch_size = 1
 		self.double = True
@@ -149,7 +149,7 @@ class DQNAgent_NTM(abstractAgent):
 		if self.lstm:
 			self.model.train_on_batch(x_train, y_train)
 		else:
-			loss, predict_loss = self.model.train_on_batch(x_train, y_train, data_next = x_next)
+			loss, predict_loss = self.model.train_on_batch(x_train, y_train)
 
 	def act(self, state, testing = False):
 

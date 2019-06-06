@@ -16,10 +16,15 @@ class NTM_model(abstractModel):
         self.num_units = 32
         self.num_memory_locations = 32
         self.memory_size = 32
-        self.num_read_heads = len(num_actions) + 1
+        if isinstance(num_actions, int):
+            self.num_read_heads = 2
+            self.num_actions = list([num_actions])
+        else:
+            self.num_read_heads = len(num_actions) + 1
+            self.num_actions = list(num_actions)
         self.num_write_heads = 1
         self.output_dim = 32
-        self.num_actions = list(num_actions)
+
         self.input_size = input_size
 
         self.tau = 0.5
@@ -33,7 +38,7 @@ class NTM_model(abstractModel):
         self.save_path = "models/" + envname + "/model.ckpt"
 
         self.inputs = tf.placeholder(tf.float32, shape=(self.batch_size, None, input_size), name="Input_Node")
-        self.target = tf.placeholder(tf.float32, shape=(self.batch_size, None)+tuple(num_actions), name="Target_Node")
+        self.target = tf.placeholder(tf.float32, shape=(self.batch_size, None)+tuple(self.num_actions), name="Target_Node")
         self.predict_state = tf.placeholder(tf.float32, shape=(self.batch_size, None, input_size), name="Target_Node")
         self.memory_init = tf.placeholder(tf.float32,
                                           shape=(self.batch_size, self.memory_size, self.num_memory_locations),

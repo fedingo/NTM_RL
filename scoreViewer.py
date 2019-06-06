@@ -1,8 +1,11 @@
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Qt5agg")
 
 class scoreViewer:
 
 	def __init__(self, lowest_score = 0, target_score = 0):
+		plt.close()
 		self.fig = plt.figure()
 		self.ax1 = self.fig.add_subplot(1,1,1)
 
@@ -36,8 +39,10 @@ class scoreViewer:
 		x_array = range(len(self.mean_array))
 		plt.plot(x_array, self.mean_array, 'C1')
 		plt.plot(x_array, self.mean_array_100, 'C2')
-		plt.draw()
-		plt.pause(0.001)
+		# plt.draw()
+		# plt.pause(0.001)
+		self.fig.canvas.draw_idle()
+		self.fig.canvas.start_event_loop(0.001)
 		return  plt.fignum_exists(1)
 
 	## Loggin function that prints the current number of episodes and the average scores  (10 and 100)

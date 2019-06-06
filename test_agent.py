@@ -2,6 +2,7 @@ import gym
 import gym.spaces
 import gym_maze_exploration
 import gym_unblockme
+import gym_pigchase_topdown
 import numpy as np
 
 import time
@@ -16,22 +17,24 @@ import scoreViewer as sv
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-def test_agent(tested_agent, env):
+def test_agent(tested_agent, env, render = False, test_episodes = 1000):
 
 	score = 0
 	total_score = 0
 	episode = 0
-	test_episodes = 5
-	state = env.reset()
-	env.render()
+	state = env.reset()#training=False)
+	if render:
+		env.render()
 	tested_agent.reset_mem()
 	if len(state.shape) > 1:
 		state = state.flatten()
 
+	solved = 0.0
+
 	print("\n Starting Test \n")
 
 	while episode < test_episodes:
-		action = tested_agent.act(state, testing = True)
+		action = tested_agent.act(state, testing=True)
 		if action_reshape:
 			action_ = np.unravel_index(action, original_action_size)
 			next_state, reward, done, info = env.step(action_)
@@ -43,19 +46,24 @@ def test_agent(tested_agent, env):
 		if len(state.shape) > 1:
 			state = state.flatten()
 		state = np.true_divide(state, input_scaling)
-		env.render()
+		if render:
+			env.render()
 
 		if done:
 			episode += 1
-			state = env.reset()
-			env.render()
+			state = env.reset()#training=False)
+			if render:
+				env.render()
 			if len(state.shape) > 1:
 				state = state.flatten()
 			tested_agent.reset_mem()
-			print("episode done: score %d" % score)
+
+			if score > 0:
+				solved += 1
 			score = 0
 
 	print("\nModel Score is %.2f" % (total_score/test_episodes))
+	print("Percentage of mazes solved %.2f %%" % (solved/test_episodes*100))
 
 	return total_score/test_episodes
 
@@ -72,7 +80,9 @@ agent_class = sys.argv[2]
 environment = sys.argv[3]
 target_score = 0
 target_episodes = 1000
-input_scaling = 4
+input_scaling = 1
+
+stacking_states = 10
 
 if len(sys.argv) == 5:
 	target_episodes = int(sys.argv[4])
@@ -96,11 +106,20 @@ image_path  = "images/" + agent_tuple[0] + "_" + environment + ".png"
 print('Load gym environment: ' + environment + "\n")
 env = gym.make(environment)
 
+
+def stack (stacked, new_s):
+	res = np.stack([new_s]+ [x for x in stacked])
+	return res[:-1]
+
+
 # Creating the Gym environment
 state = env.reset()
 if len(state.shape) > 1:
 	state = state.flatten()
 state = np.true_divide(state, input_scaling)
+
+stacked_state = np.zeros((stacking_states,) + state.shape)
+stacked_state = stack(stacked_state, state)
 
 state_size = state.shape[0]
 action_reshape = False
@@ -176,8 +195,8 @@ if operation == "train":
 			if episodes >= target_episodes:
 				break
 	viewer.saveToFile(image_path)
-	test_agent(agent, env)
+	test_agent(agent, env, render=True, test_episodes=5)
 elif "test":
-	test_agent(agent, env)
+	test_agent(agent, env, render=False, test_episodes=200)
 
 print("Closing...")

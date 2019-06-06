@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class LSTM_model(abstractModel):
-	def __init__(self, input_size, num_actions):
+	def __init__(self, input_size, num_actions, load = False, envname = "tmp"):
 
 		self.num_layers = 2
 		self.num_units = 32
@@ -31,6 +31,8 @@ class LSTM_model(abstractModel):
 		self.target = tf.placeholder(tf.float32, shape=(self.batch_size, None, num_actions), name="Target_Node")
 		self.memory_init = tf.placeholder(tf.float32, shape=(self.batch_size, 2, self.output_dim),
 										  name="Memory_Node")
+
+		self.save_path = "models/" + envname + "/model.ckpt"
 
 		self.cell = tf.nn.rnn_cell.LSTMCell(self.output_dim)
 		self.target_cell = tf.nn.rnn_cell.LSTMCell(self.output_dim)
@@ -75,6 +77,15 @@ class LSTM_model(abstractModel):
 
 		self.tf_session = tf.Session()
 		self.tf_session.run(tf.global_variables_initializer())
+		self.saver = tf.train.Saver()
+
+		if load:
+			self.saver.restore(self.tf_session, self.save_path)
+		else:
+			self.tf_session.run(tf.global_variables_initializer())
+
+	def save_model(self):
+		self.saver.save(self.tf_session, self.save_path)
 
 	def _null_memory(self):
 		return np.ones([self.batch_size, 2, self.output_dim]) * self.constant_value
@@ -92,28 +103,57 @@ class LSTM_model(abstractModel):
 
 		output_sequence = rnn_output_sequence
 
-		with tf.name_scope("after_ntm"):
+		with tf.name_scope("after_lstm"):
+
+			with tf.name_scope("state_value"):
+				arch = [32]
+				output_sequence = rnn_output_sequence
+
+				for l in arch:
+					output_sequence = tf.contrib.layers.fully_connected(
+						inputs=output_sequence,
+						num_outputs=l,
+						activation_fn=tf.nn.relu
+					)
+
+				node_dict['current_latent'] = output_sequence
+
+				output_sequence = tf.contrib.layers.fully_connected(
+					inputs=output_sequence,
+					num_outputs=1,
+					activation_fn=None
+				)
+
+				tile_shape = list(np.copy([self.num_actions]))
+				tile_shape = [1,1] + tile_shape
+				output_sequence = tf.tile(output_sequence, multiples=tile_shape)
+				node_dict['state_value'] = output_sequence
+				node_dict['outputs'] = output_sequence
 
 			#output_sequence = tf.concat([output_sequence,self.inputs], axis=-1)
 
-			arch = [64, 64]
+			with  tf.name_scope("advantages"):
+				arch = [64, 64]
 
-			for l in arch:
+				for l in arch:
+					output_sequence = tf.contrib.layers.fully_connected(
+						inputs=output_sequence,
+						num_outputs=l,
+						activation_fn=tf.nn.relu
+					)
+
 				output_sequence = tf.contrib.layers.fully_connected(
 					inputs=output_sequence,
-					num_outputs=l,
-					activation_fn=tf.nn.relu
+					num_outputs=self.num_actions,
+					activation_fn=None
 				)
 
-			output_sequence = tf.contrib.layers.fully_connected(
-				inputs=output_sequence,
-				num_outputs=self.num_actions,
-				activation_fn=None
-			)
+				mean = tf.reduce_mean(output_sequence, axis=2, keepdims=True)
+				output_sequence = output_sequence - mean
 
-		node_dict['rnn_outputs'] = rnn_output_sequence
-		node_dict['outputs'] = output_sequence
-		node_dict['memory' ] = memory_sequence
+				node_dict['rnn_outputs'] = rnn_output_sequence
+				node_dict['outputs'] += output_sequence
+				node_dict['memory' ] = memory_sequence
 
 		return node_dict
 
