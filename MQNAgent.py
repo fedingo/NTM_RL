@@ -6,10 +6,9 @@ import matplotlib as plt
 from NN_models.MQN_model import *
 
 
-class DQNAgent_NTM(abstractAgent):
+class MQNAgent(abstractAgent):
 
     def __init__(self, state_size, action_size, load=False, envname="tmp"):
-        print("Creating a DQN Agent")
 
         self.exploration_rate = 1
         self.exploration_decay = 0.995
@@ -22,6 +21,7 @@ class DQNAgent_NTM(abstractAgent):
 
         self.stacked_states = None
         self.load = load
+        self.show_memory = True
 
         self.sequence_length = 48
         self.envname = envname
@@ -103,11 +103,11 @@ class DQNAgent_NTM(abstractAgent):
             stateSize = self.__reshaped_state_size__(dim=current_sequence_length)
 
             data_train = np.reshape(state, stateSize)
-            target = self.model.predict(data_train)
+            target, _ = self.model.predict(data_train)
 
             data_next = np.reshape(next_s, stateSize)
             if self.double:
-                next_target = self.model.predict(data_next)
+                next_target, _ = self.model.predict(data_next)
                 next_target_frozen = self.model.predict_frozen(data_next)
 
                 max_next_target = []
@@ -134,7 +134,7 @@ class DQNAgent_NTM(abstractAgent):
 
         loss = self.model.train_on_batch(x_train, y_train)
 
-    def act(self, state, testing=False):
+    def act(self, state, testing=False, display_mem=False):
 
         stateSize = self.__reshaped_state_size__()
         state = np.reshape(state, stateSize)
@@ -144,12 +144,19 @@ class DQNAgent_NTM(abstractAgent):
         else:
             self.stacked_states = np.concatenate([self.stacked_states, state], axis = 1)
 
-        q_values = self.model.predict(self.stacked_states)
+        q_values, memory = self.model.predict(self.stacked_states)
 
         if np.random.uniform(0, 1) < self.exploration_rate and not testing:
             action = np.random.randint(self.action_size)
         else:
             action = np.argmax(q_values[-1])
+
+        if testing and self.show_memory and display_mem:
+            attentions = memory.read_attentions
+
+            fig, (ax1, ax2) = plt.subplots(2, 1, num=2)
+            ax1.matshow(np.transpose(memory.M), vmin=-1, vmax=1)
+            ax2.matshow(attentions, vmin=0, vmax=1)
 
         return action
 

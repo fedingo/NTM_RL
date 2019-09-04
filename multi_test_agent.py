@@ -13,6 +13,7 @@ import sys, inspect
 import importlib
 import scoreViewer as sv
 import tensorflow as tf
+import winsound
 
 # Used to hide the Tensorflow warning
 import os
@@ -20,11 +21,11 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
-def test_agent(tested_agent, env, render=False, test_episodes=1000):
+def test_agent(tested_agent, env, render=False, test_episodes=1000, test=True):
     score = 0
     total_score = 0
     episode = 0
-    state = env.reset(training=False)
+    state = env.reset(training=not test)
     if render:
         env.render()
     tested_agent.reset_mem()
@@ -50,13 +51,12 @@ def test_agent(tested_agent, env, render=False, test_episodes=1000):
 
         if done:
             episode += 1
-            state = env.reset(training=False)
+            state = env.reset(training=not test)
             if render:
                 env.render()
             if len(state.shape) > 1:
                 state = state.flatten()
             tested_agent.reset_mem()
-            print("episode done: score %f" % score)
 
             if score > 0:
                 solved += 1
@@ -77,7 +77,7 @@ if len(sys.argv) < 3:
 operation = sys.argv[1]
 agent_class_name = sys.argv[2]
 environment = sys.argv[3]
-target_score = 0.5
+target_score = 1
 target_episodes = 1000
 input_scaling = 1
 
@@ -122,6 +122,7 @@ def train_and_test(agent_tuple, agent_class, index):
         action_size = env.action_space.n
 
     print("State size is %d, action size is %d" % (state_size, action_size))
+    print("Experiment N° %d" % index)
 
     step = 0
     score = 0
@@ -185,23 +186,39 @@ def train_and_test(agent_tuple, agent_class, index):
                 break
     viewer.saveToFile(image_path)
 
-    score, solved = test_agent(agent, env, render=False, test_episodes=100)
+    train_score, train_solved = test_agent(agent, env, render=False, test_episodes=100, test=False)
+    test_score,  test_solved  = test_agent(agent, env, render=False, test_episodes=100, test=True)
 
-    return score, solved
+    return train_score, train_solved, test_score, test_solved, episodes
 
 
 experiments = 10
-total_score = 0
-total_solved = 0
+total_train_score, mean_episodes, total_train_solved = 0, 0, 0
+total_test_score, total_test_solved = 0, 0
 
+start_time = time.time()
 
 for i in range(experiments):
 
-    score, solved = train_and_test(agent_tuple_input, agent_class_input, i)
-    total_score  += score
-    total_solved += solved
+    train_score, train_solved, test_score, test_solved, episodes_taken = train_and_test(agent_tuple_input, agent_class_input, i)
+    total_train_score  += train_score
+    total_train_solved += train_solved
+    total_test_score   += test_score
+    total_test_solved  += test_solved
+    mean_episodes += episodes_taken
 
-print("Score: %.2f - Solved: %.2f" % (total_score/experiments, total_solved/experiments))
+print("=======================Results===========================")
+print("----------------------Training---------------------------")
+print("Score: %.3f - Solved: %.4f - Mean Episodes required %d" %
+      (total_train_score/experiments, total_train_solved/experiments, mean_episodes/experiments))
 
+print("------------------------Test-----------------------------")
+print("Score: %.3f - Solved: %.4f - Mean Episodes required %d" %
+      (total_test_score/experiments, total_test_solved/experiments, mean_episodes/experiments))
 
-print("Closing...")
+print("Time Taken: %d s" % (time.time()-start_time))
+
+print("=========================================================")
+
+for i in range(4):
+    winsound.Beep(i*500 + 500, 100)

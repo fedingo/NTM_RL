@@ -11,10 +11,11 @@ class MQN_model(abstractModel):
     def __init__(self, input_size, num_actions, envname="tmp", load=False):
 
         self.controller_arch = []
-        self.memory_size = 64
+        self.memory_size = 24
 
         self.num_read_heads = 1
-        self.output_dim = 32
+        self.num_write_heads = 1
+        #self.output_dim = 96
         self.num_actions = num_actions
         self.input_size = input_size
 
@@ -33,12 +34,12 @@ class MQN_model(abstractModel):
 
         with tf.variable_scope('q_network'):
             self.cell = MANNCell(self.controller_arch, self.embeddings_dims, self.memory_size,
-                                 self.num_read_heads, feedback=self.feedback)
+                                 read_head_num=self.num_read_heads, write_head_num=self.num_write_heads, feedback=self.feedback)
             self.model = self._build_model(self.cell)
 
         with tf.variable_scope('target_q_network'):
             self.target_cell = MANNCell(self.controller_arch, self.embeddings_dims, self.memory_size,
-                                        self.num_read_heads, feedback=self.feedback)
+                                        read_head_num=self.num_read_heads, write_head_num=self.num_write_heads, feedback=self.feedback)
             self.frozen_model = self._build_model(self.target_cell)
 
         with tf.variable_scope('q_values_training_operations'):
@@ -49,9 +50,6 @@ class MQN_model(abstractModel):
             trainable_variables = tf.trainable_variables()
             grads, _ = tf.clip_by_global_norm(tf.gradients(self.q_loss, trainable_variables), max_grad_norm)
             self.q_train_op = optimizer.apply_gradients(zip(grads, trainable_variables))
-
-
-            #self.q_train_op = optimizer.minimize(self.q_loss)
 
         with tf.name_scope("update_target_network"):
             critic_params = [t for t in tf.trainable_variables() if t.name.startswith('q_network')]
@@ -81,7 +79,7 @@ class MQN_model(abstractModel):
         node_dict = {}
 
         with tf.name_scope("before_ntm"):
-            arch = [self.embeddings_dims]
+            arch = [196, self.embeddings_dims]
             rnn_output_sequence = self.inputs
 
             for l in arch:
@@ -91,30 +89,18 @@ class MQN_model(abstractModel):
                     activation_fn=tf.nn.relu
                 )
 
-        # print("Before")
-        # print(rnn_output_sequence.get_shape())
-
         rnn_output_sequence, memory_sequence = tf.nn.dynamic_rnn(
             cell=cell,
             inputs=rnn_output_sequence,
-            initial_state=None, #self.init_tuple
+            initial_state=None,
             dtype=tf.float32,
             time_major=False)
 
         q_output_sequence = rnn_output_sequence
 
-        # print("After")
-        # print(q_output_sequence.get_shape())
-
-        #q_output_sequence = tf.concat([q_output_sequence, self.inputs], axis = -1)
-        # s_output_sequence = tf.concat([s_output_sequence,self.inputs], axis = -1)
-
-        #print(q_output_sequence.get_shape())
-
-        # output_sequence = tf.concat([output_sequence,self.inputs], axis=-1)
         with tf.name_scope("after_ntm"):
             with tf.name_scope("state_value"):
-                arch = [128]
+                arch = [128, 64]
                 output_sequence = q_output_sequence
 
                 for l in arch:
@@ -139,7 +125,7 @@ class MQN_model(abstractModel):
                 node_dict['outputs'] = output_sequence
 
             with tf.name_scope("advantages"):
-                arch = [128]
+                arch = [128, 64]
                 output_sequence = q_output_sequence
 
                 for l in arch:
@@ -167,13 +153,13 @@ class MQN_model(abstractModel):
 
     def predict(self, states_vector):
 
-        outputs = self.tf_session.run(
-            self.model['outputs'],
+        outputs, memory = self.tf_session.run(
+            [self.model['outputs'], self.model['memory']],
             feed_dict={
                 self.inputs: states_vector
             })
 
-        return outputs[-1]
+        return outputs[-1], memory
 
     def predict_frozen(self, states_vector):
 
